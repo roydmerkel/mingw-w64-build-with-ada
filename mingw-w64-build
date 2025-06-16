@@ -145,7 +145,7 @@ download_sources()
             https://gcc.gnu.org/git/gcc.git gcc
 
     cd gcc
-    git apply ${WD}/ada-patch.patch
+    git apply --verbose ${WD}/ada-patch.patch
     cd ..
 
     execute "downloading config.guess" "" \
