@@ -1,0 +1,87 @@
+diff --git a/Makefile.def b/Makefile.def
+index 19954e7d731..740dc2155f6 100644
+--- a/Makefile.def
++++ b/Makefile.def
+@@ -413,6 +413,7 @@ dependencies = { module=all-libcpp; on=all-libiconv; };
+ 
+ dependencies = { module=all-fixincludes; on=all-libiberty; };
+ 
++dependencies = { module=all-target-libada; on=all-gcc; };
+ dependencies = { module=all-gnattools; on=all-target-libada; };
+ dependencies = { module=all-gnattools; on=all-target-libstdc++-v3; };
+ 
+diff --git a/Makefile.in b/Makefile.in
+index db4fa6c6260..fd81f7653cb 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -68711,6 +68711,7 @@ configure-target-libgo: maybe-all-target-libbacktrace
+ @endif gcc-bootstrap
+ 
+ @unless gcc-bootstrap
++all-target-libada: maybe-all-gcc
+ all-gnattools: maybe-all-target-libstdc++-v3
+ configure-libcc1: maybe-configure-gcc
+ all-libcc1: maybe-all-gcc
+diff --git a/gcc/Makefile.in b/gcc/Makefile.in
+index d475bf1c32e..b36b7a504ba 100644
+--- a/gcc/Makefile.in
++++ b/gcc/Makefile.in
+@@ -620,8 +620,8 @@ xm_include_list=@xm_include_list@
+ xm_defines=@xm_defines@
+ lang_checks=
+ lang_checks_parallelized=
+-lang_opt_files=@lang_opt_files@ $(srcdir)/c-family/c.opt $(srcdir)/common.opt $(srcdir)/params.opt $(srcdir)/analyzer/analyzer.opt
+-lang_specs_files=@lang_specs_files@
++lang_opt_files=@lang_opt_files@ $(srcdir)/c-family/c.opt $(srcdir)/common.opt $(srcdir)/params.opt $(srcdir)/analyzer/analyzer.opt $(foreach lang,$(subst ada,ada/gcc-interface,$(debian_extra_langs)),$(srcdir)/$(lang)/lang.opt)
++lang_specs_files=@lang_specs_files@ $(foreach lang,$(subst ada,ada/gcc-interface,$(debian_extra_langs)),$(srcdir)/$(lang)/lang-specs.h)
+ lang_tree_files=@lang_tree_files@
+ target_cpu_default=@target_cpu_default@
+ OBJC_BOEHM_GC=@objc_boehm_gc@
+diff --git a/gcc/ada/Make-generated.in b/gcc/ada/Make-generated.in
+index 95c2a1df352..1d3b3d82022 100644
+--- a/gcc/ada/Make-generated.in
++++ b/gcc/ada/Make-generated.in
+@@ -18,7 +18,7 @@ GEN_IL_FLAGS = -gnata -gnat2012 -gnatw.g -gnatyg -gnatU $(GEN_IL_INCLUDES)
+ ada/seinfo_tables.ads ada/seinfo_tables.adb ada/sinfo.h ada/einfo.h ada/nmake.ads ada/nmake.adb ada/seinfo.ads ada/sinfo-nodes.ads ada/sinfo-nodes.adb ada/einfo-entities.ads ada/einfo-entities.adb: ada/stamp-gen_il ; @true
+ ada/stamp-gen_il: $(fsrcdir)/ada/gen_il*
+ 	$(MKDIR) ada/gen_il
+-	cd ada/gen_il; gnatmake -q -g $(GEN_IL_FLAGS) gen_il-main
++	cd ada/gen_il; gnatmake -v -g $(GEN_IL_FLAGS) gen_il-main
+ 	# Ignore errors to work around finalization issues in older compilers
+ 	- cd ada/gen_il; ./gen_il-main
+ 	$(fsrcdir)/../move-if-change ada/gen_il/seinfo_tables.ads ada/seinfo_tables.ads
+@@ -46,7 +46,7 @@ ada/stamp-snames : ada/snames.ads-tmpl ada/snames.adb-tmpl ada/snames.h-tmpl ada
+ 	-$(MKDIR) ada/bldtools/snamest
+ 	$(RM) $(addprefix ada/bldtools/snamest/,$(notdir $^))
+ 	$(CP) $^ ada/bldtools/snamest
+-	cd ada/bldtools/snamest && gnatmake -q xsnamest && ./xsnamest
++	cd ada/bldtools/snamest && gnatmake -v xsnamest && ./xsnamest
+ 	$(fsrcdir)/../move-if-change ada/bldtools/snamest/snames.ns ada/snames.ads
+ 	$(fsrcdir)/../move-if-change ada/bldtools/snamest/snames.nb ada/snames.adb
+ 	$(fsrcdir)/../move-if-change ada/bldtools/snamest/snames.nh ada/snames.h
+diff --git a/gcc/ada/gcc-interface/Makefile.in b/gcc/ada/gcc-interface/Makefile.in
+index 0666fc00bb8..1e9a94aeb11 100644
+--- a/gcc/ada/gcc-interface/Makefile.in
++++ b/gcc/ada/gcc-interface/Makefile.in
+@@ -621,7 +621,7 @@ OSCONS_EXTRACT=$(GCC_FOR_ADA_RTS) $(GNATLIBCFLAGS_FOR_C) -S s-oscons-tmplt.i
+ 	-$(MKDIR) ./bldtools/oscons
+ 	$(RM) $(addprefix ./bldtools/oscons/,$(notdir $^))
+ 	$(CP) $^ ./bldtools/oscons
+-	(cd ./bldtools/oscons ; gnatmake -q xoscons)
++	(cd ./bldtools/oscons ; gnatmake -v xoscons)
+ 
+ $(RTSDIR)/s-oscons.ads: ../stamp-gnatlib1-$(RTSDIR) s-oscons-tmplt.c gsocket.h ./bldtools/oscons/xoscons
+ 	$(RM) $(RTSDIR)/s-oscons-tmplt.i $(RTSDIR)/s-oscons-tmplt.s
+diff --git a/gcc/ada/gcc-interface/config-lang.in b/gcc/ada/gcc-interface/config-lang.in
+index 4a6c23c47ab..af59ab0871b 100644
+--- a/gcc/ada/gcc-interface/config-lang.in
++++ b/gcc/ada/gcc-interface/config-lang.in
+@@ -44,7 +44,7 @@ if test "x$cross_compiling/$build/$host" = "xno/$host/$target" ; then
+ fi
+ 
+ target_libs="target-libada"
+-lang_dirs="gnattools"
++lang_dirs="libada gnattools"
+ 
+ # Ada is not enabled by default for the time being.
+ build_by_default=no

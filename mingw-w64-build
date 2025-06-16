@@ -143,6 +143,10 @@ download_sources()
         git clone --depth 1 -b "$GCC_BRANCH" \
             https://gcc.gnu.org/git/gcc.git gcc
 
+    cd gcc
+    git apply ada-patch.patch
+    cd ..
+
     execute "downloading config.guess" "" \
         curl -o config.guess \
             "https://gitweb.git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD"
@@ -205,7 +209,7 @@ build()
     execute "($arch): configuring GCC" "" \
         "$SRC_PATH/gcc/configure" --target="$host" --disable-shared \
             --enable-static --disable-multilib --prefix="$prefix" \
-            --enable-languages=c,c++ --disable-nls $ENABLE_THREADS \
+            --enable-languages=c,c++,ada --disable-nls $ENABLE_THREADS \
             $x86_dwarf2
 
     execute "($arch): building GCC (all-gcc)" "" \
