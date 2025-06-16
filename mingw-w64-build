@@ -184,13 +184,13 @@ build()
     execute "($arch): configuring Binutils" "" \
         "$SRC_PATH/binutils/configure" --prefix="$prefix" --disable-shared \
             --enable-static --with-sysroot="$prefix" --target="$host" \
-            --disable-multilib --disable-nls --enable-lto --disable-gdb
+            --disable-multilib --disable-nls --enable-lto --disable-gdb --verbose
 
     execute "($arch): building Binutils" "" \
-        make -j $JOB_COUNT
+        make V=1 VERBOSE=1 -j $JOB_COUNT --debug=verbose
 
     execute "($arch): installing Binutils" "" \
-        make install
+        make V=1 VERBOSE=1 install --debug=verbose
 
     create_dir "$bld_path/mingw-w64-headers"
     change_dir "$bld_path/mingw-w64-headers"
@@ -199,10 +199,10 @@ build()
         "$SRC_PATH/mingw-w64/mingw-w64-headers/configure" --build="$BUILD" \
             --host="$host" --prefix="$prefix/$host" \
             --with-default-win32-winnt=$WIN32_WINNT \
-            --with-default-msvcrt=$LINKED_RUNTIME
+            --with-default-msvcrt=$LINKED_RUNTIME --verbose
 
     execute "($arch): installing MinGW-w64 headers" "" \
-        make install
+        make V=1 VERBOSE=1 install --debug=verbose
 
     create_dir "$bld_path/gcc"
     change_dir "$bld_path/gcc"
@@ -211,12 +211,12 @@ build()
         "$SRC_PATH/gcc/configure" --target="$host" --disable-shared \
             --enable-static --disable-multilib --prefix="$prefix" \
             --enable-languages=c,c++,ada --disable-nls $ENABLE_THREADS \
-            $x86_dwarf2
+            $x86_dwarf2 --verbose
 
     execute "($arch): building GCC (all-gcc)" "" \
-        make -j $JOB_COUNT all-gcc
+        make V=1 VERBOSE=1 -j $JOB_COUNT all-gcc --debug=verbose
     execute "($arch): installing GCC (install-gcc)" "" \
-        make install-gcc
+        make V=1 VERBOSE=1 install-gcc --debug=verbose
 
     create_dir "$bld_path/mingw-w64-crt"
     change_dir "$bld_path/mingw-w64-crt"
@@ -225,12 +225,12 @@ build()
         "$SRC_PATH/mingw-w64/mingw-w64-crt/configure" --build="$BUILD" \
             --host="$host" --prefix="$prefix/$host" \
             --with-default-msvcrt=$LINKED_RUNTIME \
-            --with-sysroot="$prefix/$host" $crt_lib
+            --with-sysroot="$prefix/$host" $crt_lib --verbose
 
     execute "($arch): building MinGW-w64 CRT" "" \
-        make -j $JOB_COUNT
+        make V=1 VERBOSE=1 -j $JOB_COUNT --debug=verbose
     execute "($arch): installing MinGW-w64 CRT" "" \
-        make install
+        make V=1 VERBOSE=1 install --debug=verbose
 
     if [ "$ENABLE_THREADS" ]; then
         create_dir "$bld_path/mingw-w64-winpthreads"
@@ -239,21 +239,21 @@ build()
         execute "($arch): configuring winpthreads" "" \
             "$SRC_PATH/mingw-w64/mingw-w64-libraries/winpthreads/configure" \
                 --build="$BUILD" --host="$host" --disable-shared \
-                --enable-static --prefix="$prefix/$host"
+                --enable-static --prefix="$prefix/$host" --verbose
 
         execute "($arch): building winpthreads" "" \
-            make -j $JOB_COUNT
+            make V=1 VERBOSE=1 -j $JOB_COUNT --debug=verbose
 
         execute "($arch): installing winpthreads" "" \
-            make install
+            make V=1 VERBOSE=1 install --debug=verbose
     fi
 
     change_dir "$bld_path/gcc"
 
     execute "($arch): building GCC" "" \
-        make -j $JOB_COUNT
+        make V=1 VERBOSE=1 -j $JOB_COUNT --debug=verbose
     execute "($arch): installing GCC" "" \
-        make install
+        make V=1 VERBOSE=1 install --debug=verbose
 }
 
 while :; do
