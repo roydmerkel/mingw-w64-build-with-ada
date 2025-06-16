@@ -1,12 +1,21 @@
 diff --git a/Makefile.def b/Makefile.def
-index 19954e7d731..740dc2155f6 100644
+index 19954e7d731..7679972a876 100644
 --- a/Makefile.def
 +++ b/Makefile.def
-@@ -413,6 +413,7 @@ dependencies = { module=all-libcpp; on=all-libiconv; };
+@@ -205,6 +205,7 @@ target_modules = { module= zlib; bootstrap=true; };
+ target_modules = { module= rda; };
+ target_modules = { module= libada; };
+ target_modules = { module= libgm2; lib_path=.libs; };
++target_modules = { module= libada-sjlj; };
+ target_modules = { module= libgomp; bootstrap= true; lib_path=.libs; };
+ target_modules = { module= libitm; lib_path=.libs; };
+ target_modules = { module= libatomic; bootstrap=true; lib_path=.libs; };
+@@ -413,6 +414,8 @@ dependencies = { module=all-libcpp; on=all-libiconv; };
  
  dependencies = { module=all-fixincludes; on=all-libiberty; };
  
 +dependencies = { module=all-target-libada; on=all-gcc; };
++dependencies = { module=all-target-libada-sjlj; on=all-target-libada; };
  dependencies = { module=all-gnattools; on=all-target-libada; };
  dependencies = { module=all-gnattools; on=all-target-libstdc++-v3; };
  
@@ -22,6 +31,40 @@ index db4fa6c6260..fd81f7653cb 100644
  all-gnattools: maybe-all-target-libstdc++-v3
  configure-libcc1: maybe-configure-gcc
  all-libcc1: maybe-all-gcc
+diff --git a/configure.ac b/configure.ac
+index 042681c27be..b5b813b7672 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -143,6 +143,11 @@ host_libs="gettext libiberty opcodes bfd readline tcl tk itcl libgui zlib libbac
+ # If --enable-gold is used, "gold" may replace "ld".
+ host_tools="texinfo flex bison binutils gas ld fixincludes gcc cgen sid sim gdb gdbserver gprof etc expect dejagnu m4 utils guile fastjar gnattools libcc1 gm2tools gotools c++tools"
+ 
++case "${target}" in
++  hppa64-*linux*) ;;
++  *) target_libiberty="target-libiberty";;
++esac
++
+ # these libraries are built for the target environment, and are built after
+ # the host libraries and the host tools (which may be a cross compiler)
+ # Note that libiberty is not a target library.
+@@ -162,6 +167,8 @@ target_libraries="target-libgcc \
+ 		target-libffi \
+ 		target-libobjc \
+ 		target-libada \
++		target-libada-sjlj \
++		${target_libiberty} \
+ 		target-libgm2 \
+ 		target-libgo \
+ 		target-libgrust \
+@@ -499,7 +506,7 @@ AC_ARG_ENABLE(libada,
+ ENABLE_LIBADA=$enableval,
+ ENABLE_LIBADA=yes)
+ if test "${ENABLE_LIBADA}" != "yes" ; then
+-  noconfigdirs="$noconfigdirs gnattools"
++  noconfigdirs="$noconfigdirs gnattools target-libada-sjlj"
+ fi
+ 
+ AC_ARG_ENABLE(libgm2,
 diff --git a/gcc/Makefile.in b/gcc/Makefile.in
 index d475bf1c32e..b36b7a504ba 100644
 --- a/gcc/Makefile.in
@@ -38,7 +81,7 @@ index d475bf1c32e..b36b7a504ba 100644
  target_cpu_default=@target_cpu_default@
  OBJC_BOEHM_GC=@objc_boehm_gc@
 diff --git a/gcc/ada/Make-generated.in b/gcc/ada/Make-generated.in
-index 95c2a1df352..1d3b3d82022 100644
+index 95c2a1df352..97b5b611177 100644
 --- a/gcc/ada/Make-generated.in
 +++ b/gcc/ada/Make-generated.in
 @@ -18,7 +18,7 @@ GEN_IL_FLAGS = -gnata -gnat2012 -gnatw.g -gnatyg -gnatU $(GEN_IL_INCLUDES)
@@ -46,24 +89,173 @@ index 95c2a1df352..1d3b3d82022 100644
  ada/stamp-gen_il: $(fsrcdir)/ada/gen_il*
  	$(MKDIR) ada/gen_il
 -	cd ada/gen_il; gnatmake -q -g $(GEN_IL_FLAGS) gen_il-main
-+	cd ada/gen_il; gnatmake -v -g $(GEN_IL_FLAGS) gen_il-main
++	cd ada/gen_il; $(GNATMAKE) -v -g $(GEN_IL_FLAGS) gen_il-main
  	# Ignore errors to work around finalization issues in older compilers
  	- cd ada/gen_il; ./gen_il-main
  	$(fsrcdir)/../move-if-change ada/gen_il/seinfo_tables.ads ada/seinfo_tables.ads
-@@ -46,7 +46,7 @@ ada/stamp-snames : ada/snames.ads-tmpl ada/snames.adb-tmpl ada/snames.h-tmpl ada
+@@ -39,14 +39,14 @@ ada/stamp-gen_il: $(fsrcdir)/ada/gen_il*
+ # would cause bootstrapping with older compilers to fail. You can call it by
+ # hand, as a sanity check that these files are legal.
+ ada/seinfo_tables.o: ada/seinfo_tables.ads ada/seinfo_tables.adb
+-	cd ada ; gnatmake $(GEN_IL_INCLUDES) seinfo_tables.adb -gnatU -gnatX
++	cd ada ; $(GNATMAKE) $(GEN_IL_INCLUDES) seinfo_tables.adb -gnatU -gnatX
+ 
+ ada/snames.h ada/snames.ads ada/snames.adb : ada/stamp-snames ; @true
+ ada/stamp-snames : ada/snames.ads-tmpl ada/snames.adb-tmpl ada/snames.h-tmpl ada/xsnamest.adb ada/xutil.ads ada/xutil.adb
  	-$(MKDIR) ada/bldtools/snamest
  	$(RM) $(addprefix ada/bldtools/snamest/,$(notdir $^))
  	$(CP) $^ ada/bldtools/snamest
 -	cd ada/bldtools/snamest && gnatmake -q xsnamest && ./xsnamest
-+	cd ada/bldtools/snamest && gnatmake -v xsnamest && ./xsnamest
++	cd ada/bldtools/snamest && $(GNATMAKE) -v xsnamest && ./xsnamest
  	$(fsrcdir)/../move-if-change ada/bldtools/snamest/snames.ns ada/snames.ads
  	$(fsrcdir)/../move-if-change ada/bldtools/snamest/snames.nb ada/snames.adb
  	$(fsrcdir)/../move-if-change ada/bldtools/snamest/snames.nh ada/snames.h
+diff --git a/gcc/ada/Makefile.rtl b/gcc/ada/Makefile.rtl
+index d2715e698c4..b2d28369617 100644
+--- a/gcc/ada/Makefile.rtl
++++ b/gcc/ada/Makefile.rtl
+@@ -1683,6 +1683,34 @@ ifeq ($(strip $(filter-out x86_64 kfreebsd%,$(target_cpu) $(target_os))),)
+   LIBRARY_VERSION := $(LIB_VERSION)
+ endif
+ 
++# x86_64-pc-gnu i.e. GNU Hurd
++ifeq ($(strip $(filter-out x86_64 pc gnu,$(target_cpu) $(target_os))),)
++  LIBGNAT_TARGET_PAIRS = \
++  a-intnam.ads<libgnarl/a-intnam__freebsd.ads \
++  s-inmaop.adb<libgnarl/s-inmaop__posix.adb \
++  s-intman.adb<libgnarl/s-intman__posix.adb \
++  s-osinte.adb<libgnarl/s-osinte__gnu.adb \
++  s-osinte.ads<libgnarl/s-osinte__gnu.ads \
++  s-osprim.adb<libgnat/s-osprim__posix.adb \
++  s-taprop.adb<libgnarl/s-taprop__posix.adb \
++  s-taspri.ads<libgnarl/s-taspri__posix.ads \
++  s-tpopsp.adb<libgnarl/s-tpopsp__posix-foreign.adb \
++  $(ATOMICS_TARGET_PAIRS) \
++  $(X86_64_TARGET_PAIRS) \
++  $(GNATRTL_128BIT_PAIRS) \
++  system.ads<libgnat/system-freebsd.ads
++
++  EXTRA_GNATRTL_NONTASKING_OBJS = $(GNATRTL_128BIT_OBJS)
++
++  TOOLS_TARGET_PAIRS = indepsw.adb<indepsw-gnu.adb
++
++  EH_MECHANISM=-gcc
++  THREADSLIB = -lpthread
++  GNATLIB_SHARED = gnatlib-shared-dual
++  GMEM_LIB = gmemlib
++  LIBRARY_VERSION := $(LIB_VERSION)
++endif
++
+ # aarch64 FreeBSD
+ ifeq ($(strip $(filter-out %aarch64 freebsd%,$(target_cpu) $(target_os))),)
+   LIBGNAT_TARGET_PAIRS = \
+@@ -1846,6 +1874,11 @@ ifeq ($(strip $(filter-out s390% linux%,$(target_cpu) $(target_os))),)
+   LIBRARY_VERSION := $(LIB_VERSION)
+ endif
+ 
++ifeq ($(strip $(filter-out hppa% unknown linux gnu,$(targ))),)
++  GNATLIB_SHARED = gnatlib-shared-dual
++  LIBRARY_VERSION := $(LIB_VERSION)
++endif
++
+ # HP/PA HP-UX 10
+ ifeq ($(strip $(filter-out hppa% hp hpux10%,$(target_cpu) $(target_vendor) $(target_os))),)
+   LIBGNAT_TARGET_PAIRS = \
+diff --git a/gcc/ada/gcc-interface/Make-lang.in b/gcc/ada/gcc-interface/Make-lang.in
+index f6404c0b1eb..a78627899aa 100644
+--- a/gcc/ada/gcc-interface/Make-lang.in
++++ b/gcc/ada/gcc-interface/Make-lang.in
+@@ -43,7 +43,7 @@ RMDIR = rm -rf
+ 
+ 
+ # Extra flags to pass to recursive makes.
+-COMMON_ADAFLAGS= -gnatpg
++COMMON_ADAFLAGS= -gnatpgn
+ ifeq ($(TREECHECKING),)
+ CHECKING_ADAFLAGS=
+ else
+@@ -267,7 +267,9 @@ GCC_LINKERFLAGS = $(filter-out -Werror -static-libgcc, $(ALL_LINKERFLAGS))
+ GCC_LDFLAGS = $(filter-out -static-libgcc, $(LDFLAGS))
+ else
+ # Strip -Werror during linking for the LTO bootstrap
+-GCC_LINKERFLAGS = $(filter-out -Werror, $(ALL_LINKERFLAGS))
++GCC_LINKERFLAGS = $(filter-out -Werror, $(ALL_LINKERFLAGS)) \
++  -Wl,--no-allow-shlib-undefined -Wl,--no-copy-dt-needed-entries \
++  -Wl,--no-undefined
+ GCC_LDFLAGS = $(LDFLAGS)
+ endif
+ 
+@@ -983,7 +985,7 @@ gnat-install-lib: | gnat-install-tools
+ 	fi
+ 
+ install-gnatlib:
+-	$(MAKE) -C ada $(COMMON_FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) install-gnatlib$(LIBGNAT_TARGET)
++	$(MAKE) -C ada $(COMMON_FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) RTSDIR="rts-sjlj" install-gnatlib$(LIBGNAT_TARGET)
+ 
+ install-gnatlib-obj:
+ 	$(MAKE) -C ada $(COMMON_FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) install-gnatlib-obj
 diff --git a/gcc/ada/gcc-interface/Makefile.in b/gcc/ada/gcc-interface/Makefile.in
-index 0666fc00bb8..1e9a94aeb11 100644
+index 0666fc00bb8..47034be2128 100644
 --- a/gcc/ada/gcc-interface/Makefile.in
 +++ b/gcc/ada/gcc-interface/Makefile.in
-@@ -621,7 +621,7 @@ OSCONS_EXTRACT=$(GCC_FOR_ADA_RTS) $(GNATLIBCFLAGS_FOR_C) -S s-oscons-tmplt.i
+@@ -195,7 +195,7 @@ GNAT_SRC=$(fsrcpfx)ada
+ 
+ # Multilib handling
+ MULTISUBDIR =
+-RTSDIR = rts$(subst /,_,$(MULTISUBDIR))
++RTSDIR := rts$(subst /,_,$(MULTISUBDIR))
+ 
+ # Link flags used to build gnat tools.  By default we prefer to statically
+ # link with libgcc to avoid a dependency on shared libgcc (which is tricky
+@@ -503,6 +503,20 @@ gnatlink-re: ../stamp-tools gnatmake-re
+ 	  --GCC="$(CC) $(ADA_INCLUDES)" --LINK="$(GCC_LINK)" $(TOOLS_LIBS)
+ 	$(MV)  ../../gnatlinknew$(exeext)  ../../gnatlink$(exeext)
+ 
++gnatbind-re: ../stamp-tools gnatmake-re gnatlink-re
++	$(GNATMAKE) -j0 -c $(ADA_INCLUDES) gnatbind --GCC="$(CC) $(ALL_ADAFLAGS)"
++	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatbind
++	$(GNATLINK) -v gnatbind -o ../../gnatbind$(exeext) \
++	  --GCC="$(CC) $(ADA_INCLUDES)" --LINK="$(GCC_LINK)" $(TOOLS_LIBS)
++
++# When driven by gnattools/Makefile for a native build,
++# TOOLS_ALREADY_COMPILED will list objects in the target standard Ada
++# libraries, that Make should avoid rebuilding.
++# We cannot use recursive variables to avoid an infinite loop,
++# so we must put this after definition of EXTRA_GNATMAKE_OBJS.
++GNATLINK_OBJS := $(filter-out $(TOOLS_ALREADY_COMPILED),$(GNATLINK_OBJS))
++GNATMAKE_OBJS := $(filter-out $(TOOLS_ALREADY_COMPILED),$(GNATMAKE_OBJS))
++
+ # Needs to be built with CC=gcc
+ # Since the RTL should be built with the latest compiler, remove the
+ #  stamp target in the parent directory whenever gnat1 is rebuilt
+@@ -573,6 +587,26 @@ install-gnatlib: ../stamp-gnatlib-$(RTSDIR) install-gcc-specs
+ 	cd $(DESTDIR)$(ADA_INCLUDE_DIR); $(CHMOD) a-wx *.adb
+ 	cd $(DESTDIR)$(ADA_INCLUDE_DIR); $(CHMOD) a-wx *.ads
+ 
++install-gnatlib-sjlj: ../stamp-gnatlib-$(RTSDIR)
++#	Create the directory before deleting it, in case the directory is
++#	a list of directories (as it may be on VMS). This ensures we are
++#	deleting the right one.
++	-$(MKDIR) $(DESTDIR)$(ADA_RTL_OBJ_DIR_SJLJ)
++	-$(MKDIR) $(DESTDIR)$(ADA_INCLUDE_DIR_SJLJ)
++	$(RMDIR) $(DESTDIR)$(ADA_RTL_OBJ_DIR_SJLJ)
++	$(RMDIR) $(DESTDIR)$(ADA_INCLUDE_DIR_SJLJ)
++	-$(MKDIR) $(DESTDIR)$(ADA_RTL_OBJ_DIR_SJLJ)
++	-$(MKDIR) $(DESTDIR)$(ADA_INCLUDE_DIR_SJLJ)
++	for file in $(RTSDIR)/*.ali; do \
++	    $(INSTALL_DATA_DATE) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR_SJLJ); \
++	done
++	# This copy must be done preserving the date on the original file.
++	for file in $(RTSDIR)/*.ad?; do \
++	    $(INSTALL_DATA_DATE) $$file $(DESTDIR)$(ADA_INCLUDE_DIR_SJLJ); \
++	done
++	cd $(DESTDIR)$(ADA_INCLUDE_DIR_SJLJ); $(CHMOD) a-wx *.adb
++	cd $(DESTDIR)$(ADA_INCLUDE_DIR_SJLJ); $(CHMOD) a-wx *.ads
++
+ ../stamp-gnatlib2-$(RTSDIR):
+ 	$(RM) $(RTSDIR)/s-*.ali
+ 	$(RM) $(RTSDIR)/s-*$(objext)
+@@ -621,7 +655,7 @@ OSCONS_EXTRACT=$(GCC_FOR_ADA_RTS) $(GNATLIBCFLAGS_FOR_C) -S s-oscons-tmplt.i
  	-$(MKDIR) ./bldtools/oscons
  	$(RM) $(addprefix ./bldtools/oscons/,$(notdir $^))
  	$(CP) $^ ./bldtools/oscons
@@ -72,16 +264,684 @@ index 0666fc00bb8..1e9a94aeb11 100644
  
  $(RTSDIR)/s-oscons.ads: ../stamp-gnatlib1-$(RTSDIR) s-oscons-tmplt.c gsocket.h ./bldtools/oscons/xoscons
  	$(RM) $(RTSDIR)/s-oscons-tmplt.i $(RTSDIR)/s-oscons-tmplt.s
+@@ -630,7 +664,7 @@ $(RTSDIR)/s-oscons.ads: ../stamp-gnatlib1-$(RTSDIR) s-oscons-tmplt.c gsocket.h .
+ 	    $(OSCONS_EXTRACT) ; \
+ 	    ../bldtools/oscons/xoscons s-oscons)
+ 
+-gnatlib: ../stamp-gnatlib1-$(RTSDIR) ../stamp-gnatlib2-$(RTSDIR) $(RTSDIR)/s-oscons.ads
++gnatlib: ../stamp-gnatlib1-$(RTSDIR) $(RTSDIR)/s-oscons.ads
+ 	test -f $(RTSDIR)/s-oscons.ads || exit 1
+ # C files
+ 	$(MAKE) -C $(RTSDIR) \
+@@ -662,18 +696,30 @@ gnatlib: ../stamp-gnatlib1-$(RTSDIR) ../stamp-gnatlib2-$(RTSDIR) $(RTSDIR)/s-osc
+ 		$(RANLIB_FOR_TARGET) $(RTSDIR)/libgmem$(arext)
+         endif
+ 	$(CHMOD) a-wx $(RTSDIR)/*.ali
++# Provide .ads .adb (read-only).ali .so .a, but prevent direct use of .o.
++	$(RM) $(RTSDIR)/*.o
+ 	touch ../stamp-gnatlib-$(RTSDIR)
+ 
+ # Warning: this target assumes that LIBRARY_VERSION has been set correctly.
+ gnatlib-shared-default:
+-	$(MAKE) $(FLAGS_TO_PASS) \
+-             GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+-	     GNATLIBCFLAGS="$(GNATLIBCFLAGS) $(PICFLAG_FOR_TARGET) -fno-lto" \
+-	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C) $(PICFLAG_FOR_TARGET) -fno-lto" \
+-	     MULTISUBDIR="$(MULTISUBDIR)" \
+-	     THREAD_KIND="$(THREAD_KIND)" \
+-	     LN_S="$(LN_S)" \
+-             gnatlib
++	$(MAKE) -C $(RTSDIR) \
++		CC="`echo \"$(GCC_FOR_TARGET)\" \
++		| sed -e 's,\./xgcc,../../xgcc,' -e 's,-B\./,-B../../,'`" \
++	        INCLUDES="$(INCLUDES_FOR_SUBDIR) -I./../.." \
++	           CFLAGS="$(GNATLIBCFLAGS_FOR_C) $(PICFLAG_FOR_TARGET) -fno-lto" \
++	        FORCE_DEBUG_ADAFLAGS="$(FORCE_DEBUG_ADAFLAGS)" \
++		srcdir=$(fsrcdir) \
++	        -f ../Makefile $(LIBGNAT_OBJS)
++	$(MAKE) -C $(RTSDIR) \
++		CC="`echo \"$(GCC_FOR_TARGET)\" \
++		| sed -e 's,\./xgcc,../../xgcc,' -e 's,-B\./,-B../../,'`" \
++	        ADA_INCLUDES="" \
++	           CFLAGS="$(GNATLIBCFLAGS) $(PICFLAG_FOR_TARGET) -fno-lto" \
++	        ADAFLAGS="$(GNATLIBFLAGS) $(PICFLAG_FOR_TARGET) -fno-lto" \
++	        FORCE_DEBUG_ADAFLAGS="$(FORCE_DEBUG_ADAFLAGS)" \
++		srcdir=$(fsrcdir) \
++	        -f ../Makefile \
++	        $(GNATRTL_OBJS)
+ 	$(RM) $(RTSDIR)/libgna*$(soext)
+ 	cd $(RTSDIR); $(GCC_FOR_ADA_RTS) -shared $(GNATLIBCFLAGS) \
+ 		$(PICFLAG_FOR_TARGET) \
+@@ -684,8 +730,10 @@ gnatlib-shared-default:
+ 	cd $(RTSDIR); $(GCC_FOR_ADA_RTS) -shared $(GNATLIBCFLAGS) \
+ 		$(PICFLAG_FOR_TARGET) \
+ 		-o libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
++		$(LDFLAGS) \
+ 		$(GNATRTL_TASKING_OBJS) \
+ 		$(SO_OPTS)libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
++		libgnat$(hyphen)$(LIBRARY_VERSION).so \
+ 		$(THREADSLIB)
+ 	cd $(RTSDIR); $(LN_S) libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
+ 		libgnat$(soext)
+@@ -701,6 +749,10 @@ gnatlib-shared-default:
+ 	   $(addprefix $(RTSDIR)/,$(GNATRTL_TASKING_OBJS))
+ 	$(RANLIB_FOR_TARGET) $(RTSDIR)/libgnarl_pic$(arext)
+ 
++# Provide .ads .adb (read-only).ali .so .a, but prevent direct use of .o.
++	$(CHMOD) a-wx $(RTSDIR)/*.ali
++	$(RM) $(RTSDIR)/*.o
++
+ gnatlib-shared-dual:
+ 	$(MAKE) $(FLAGS_TO_PASS) \
+              GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+@@ -710,11 +762,8 @@ gnatlib-shared-dual:
+ 	     MULTISUBDIR="$(MULTISUBDIR)" \
+ 	     THREAD_KIND="$(THREAD_KIND)" \
+ 	     LN_S="$(LN_S)" \
+-             gnatlib-shared-default
+-	$(MV) $(RTSDIR)/libgna*$(soext) .
+-	$(MV) $(RTSDIR)/libgnat_pic$(arext) .
+-	$(MV) $(RTSDIR)/libgnarl_pic$(arext) .
+-	$(RM) ../stamp-gnatlib2-$(RTSDIR)
++	     gnatlib
++	$(RM) $(RTSDIR)/*.o $(RTSDIR)/*.ali
+ 	$(MAKE) $(FLAGS_TO_PASS) \
+              GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+ 	     GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
+@@ -722,10 +771,7 @@ gnatlib-shared-dual:
+ 	     MULTISUBDIR="$(MULTISUBDIR)" \
+ 	     THREAD_KIND="$(THREAD_KIND)" \
+ 	     LN_S="$(LN_S)" \
+-	     gnatlib
+-	$(MV) libgna*$(soext) $(RTSDIR)
+-	$(MV) libgnat_pic$(arext) $(RTSDIR)
+-	$(MV) libgnarl_pic$(arext) $(RTSDIR)
++	     gnatlib-shared-default
+ 
+ gnatlib-shared-dual-win32:
+ 	$(MAKE) $(FLAGS_TO_PASS) \
+@@ -736,9 +782,8 @@ gnatlib-shared-dual-win32:
+ 	     MULTISUBDIR="$(MULTISUBDIR)" \
+ 	     THREAD_KIND="$(THREAD_KIND)" \
+ 	     LN_S="$(LN_S)" \
+-	     gnatlib-shared-win32
+-	$(MV) $(RTSDIR)/libgna*$(soext) .
+-	$(RM) ../stamp-gnatlib2-$(RTSDIR)
++	        gnatlib
++	$(RM) $(RTSDIR)/*.o $(RTSDIR)/*.ali
+ 	$(MAKE) $(FLAGS_TO_PASS) \
+              GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+ 	     GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
+@@ -746,8 +791,7 @@ gnatlib-shared-dual-win32:
+ 	     MULTISUBDIR="$(MULTISUBDIR)" \
+ 	     THREAD_KIND="$(THREAD_KIND)" \
+ 	     LN_S="$(LN_S)" \
+-	     gnatlib
+-	$(MV) libgna*$(soext) $(RTSDIR)
++	     gnatlib-shared-win32
+ 
+ # ??? we need to add the option to support auto-import of arrays/records to
+ # the GNATLIBFLAGS when this will be supported by GNAT. At this point we will
+@@ -831,6 +875,7 @@ gnatlib-shared:
+ gnatlib-sjlj:
+ 	$(MAKE) $(FLAGS_TO_PASS) \
+ 	     EH_MECHANISM="" \
++	     RTSDIR="$(RTSDIR)" \
+ 	     MULTISUBDIR="$(MULTISUBDIR)" \
+ 	     THREAD_KIND="$(THREAD_KIND)" \
+ 	     LN_S="$(LN_S)" \
+@@ -842,6 +887,7 @@ gnatlib-sjlj:
+ 	$(MV) $(RTSDIR)/s.ads $(RTSDIR)/system.ads
+ 	$(MAKE) $(FLAGS_TO_PASS) \
+ 	     EH_MECHANISM="" \
++	     RTSDIR="$(RTSDIR)" \
+ 	     GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+ 	     GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
+ 	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C)" \
+@@ -904,6 +950,8 @@ toolexeclibdir = $(ADA_RTL_OBJ_DIR)
+ 
+ ADA_INCLUDE_DIR = $(libsubdir)/adainclude
+ ADA_RTL_OBJ_DIR = $(libsubdir)/adalib
++ADA_INCLUDE_DIR_SJLJ = $(libsubdir)/rts-sjlj/adainclude
++ADA_RTL_OBJ_DIR_SJLJ = $(libsubdir)/rts-sjlj/adalib
+ ADA_RTL_DSO_DIR = $(toolexeclibdir)
+ 
+ # Special flags
 diff --git a/gcc/ada/gcc-interface/config-lang.in b/gcc/ada/gcc-interface/config-lang.in
-index 4a6c23c47ab..af59ab0871b 100644
+index 4a6c23c47ab..78540ff9fed 100644
 --- a/gcc/ada/gcc-interface/config-lang.in
 +++ b/gcc/ada/gcc-interface/config-lang.in
-@@ -44,7 +44,7 @@ if test "x$cross_compiling/$build/$host" = "xno/$host/$target" ; then
+@@ -43,8 +43,8 @@ if test "x$cross_compiling/$build/$host" = "xno/$host/$target" ; then
+   lang_requires="c c++"
  fi
  
- target_libs="target-libada"
+-target_libs="target-libada"
 -lang_dirs="gnattools"
-+lang_dirs="libada gnattools"
++target_libs="target-libada target-libgnat_util target-libada-sjlj"
++lang_dirs="libada gnattools libada-sjlj"
  
  # Ada is not enabled by default for the time being.
  build_by_default=no
+diff --git a/gcc/ada/link.c b/gcc/ada/link.c
+index bc9604eb1af..7133eb354c7 100644
+--- a/gcc/ada/link.c
++++ b/gcc/ada/link.c
+@@ -107,9 +107,9 @@ const char *__gnat_default_libgcc_subdir = "lib";
+    || defined (__NetBSD__) || defined (__OpenBSD__) \
+    || defined (__QNX__)
+ const char *__gnat_object_file_option = "-Wl,@";
+-const char *__gnat_run_path_option = "-Wl,-rpath,";
+-char __gnat_shared_libgnat_default = STATIC;
+-char __gnat_shared_libgcc_default = STATIC;
++const char *__gnat_run_path_option = "";
++char __gnat_shared_libgnat_default = SHARED;
++char __gnat_shared_libgcc_default = SHARED;
+ int __gnat_link_max = 8192;
+ unsigned char __gnat_objlist_file_supported = 1;
+ const char *__gnat_object_library_extension = ".a";
+@@ -129,9 +129,9 @@ const char *__gnat_default_libgcc_subdir = "lib";
+ 
+ #elif defined (__linux__) || defined (__GLIBC__)
+ const char *__gnat_object_file_option = "-Wl,@";
+-const char *__gnat_run_path_option = "-Wl,-rpath,";
+-char __gnat_shared_libgnat_default = STATIC;
+-char __gnat_shared_libgcc_default = STATIC;
++const char *__gnat_run_path_option = "";
++char __gnat_shared_libgnat_default = SHARED;
++char __gnat_shared_libgcc_default = SHARED;
+ int __gnat_link_max = 8192;
+ unsigned char __gnat_objlist_file_supported = 1;
+ const char *__gnat_object_library_extension = ".a";
+diff --git a/gcc/ada/osint.ads b/gcc/ada/osint.ads
+index 91531060df8..f19d5fcd192 100644
+--- a/gcc/ada/osint.ads
++++ b/gcc/ada/osint.ads
+@@ -144,14 +144,10 @@ package Osint is
+    --  path) in Name_Buffer, with the length in Name_Len.
+ 
+    function Program_Name (Nam : String; Prog : String) return String_Access;
+-   --  In the native compilation case, creates a string containing Nam. In the
+-   --  cross compilation case, looks at the prefix of the current program being
+-   --  run and prepends it to Nam. For instance if the program being run is
+-   --  <target>-gnatmake and Nam is "gcc", the returned value will be a pointer
+-   --  to "<target>-gcc". This function clobbers Name_Buffer and Name_Len.
+-   --  Also looks at any suffix, e.g. gnatmake-4.1 -> "gcc-4.1". Prog is the
+-   --  default name of the current program being executed, e.g. "gnatmake",
+-   --  "gnatlink".
++   --  On Debian, always create a string containing
++   --  Sdefault.Target_Name & '-' & Nam & '-' & Gnatvsn.Library_Version.
++   --  Fail if the program base name differs from Prog,
++   --  maybe extended with the same prefix or suffix.
+ 
+    procedure Write_Program_Name;
+    --  Writes name of program as invoked to the current output (normally
+diff --git a/gcc/testsuite/lib/gnat.exp b/gcc/testsuite/lib/gnat.exp
+index 471f83e9844..492b15c7ada 100644
+--- a/gcc/testsuite/lib/gnat.exp
++++ b/gcc/testsuite/lib/gnat.exp
+@@ -115,6 +115,7 @@ proc gnat_target_compile { source dest type options } {
+     global TOOL_OPTIONS
+     global gnat_target_current
+     global TEST_ALWAYS_FLAGS
++    global ld_library_path
+ 
+     # dg-require-effective-target tests must be compiled as C.
+     if [ string match "*.c" $source ] then {
+@@ -144,6 +145,11 @@ proc gnat_target_compile { source dest type options } {
+ 	# Always log so compilations can be repeated manually.
+ 	verbose -log "ADA_INCLUDE_PATH=$rtsdir/adainclude"
+ 	verbose -log "ADA_OBJECTS_PATH=$rtsdir/adainclude"
++
++	if { ! [ string match "*/libada/adalib*" $ld_library_path ] } {
++	    append ld_library_path ":$rtsdir/adalib"
++	    set_ld_library_path_env_vars
++	}
+     }
+ 
+     lappend options "compiler=$GNAT_UNDER_TEST -q -f"
+diff --git a/gnattools/Makefile.in b/gnattools/Makefile.in
+index e8fc4af0788..79fd0d5b664 100644
+--- a/gnattools/Makefile.in
++++ b/gnattools/Makefile.in
+@@ -75,16 +75,23 @@ CXX_LFLAGS = \
+  -L../../../$(target_noncanonical)/libstdc++-v3/src/.libs \
+  -L../../../$(target_noncanonical)/libstdc++-v3/libsupc++/.libs
+ 
++rtsdir := $(abspath ../gcc/ada/rts)
++
+ # Variables for gnattools, native
+ TOOLS_FLAGS_TO_PASS_NATIVE= \
+ 	"CC=../../xgcc -B../../" \
+ 	"CXX=../../xg++ -B../../ $(CXX_LFLAGS)" \
+ 	"CFLAGS=$(CFLAGS) $(WARN_CFLAGS)" \
+-	"LDFLAGS=$(LDFLAGS)" \
+-	"ADAFLAGS=$(ADAFLAGS)" \
++	"LDFLAGS=$(LDFLAGS) -Wl,--no-allow-shlib-undefined \
++	  -Wl,--no-copy-dt-needed-entries -Wl,--no-undefined" \
++	"ADAFLAGS=$(ADAFLAGS) -gnatn" \
+ 	"ADA_CFLAGS=$(ADA_CFLAGS)" \
+ 	"INCLUDES=$(INCLUDES_FOR_SUBDIR)" \
+-	"ADA_INCLUDES=-I- -I../rts $(ADA_INCLUDES_FOR_SUBDIR)"\
++	"ADA_INCLUDES=-I- -nostdinc -I$(rtsdir) $(ADA_INCLUDES_FOR_SUBDIR)" \
++	"TOOLS_ALREADY_COMPILED=$(foreach d, $(rtsdir), \
++	  $(patsubst $(d)/%.ali,%.o, $(wildcard $(d)/*.ali)))" \
++	'LIBGNAT=$(rtsdir)/libgnat-$$(LIB_VERSION).so' \
++	"GNATBIND_FLAGS=-nostdlib -x" \
+ 	"exeext=$(exeext)" \
+ 	"fsrcdir=$(fsrcdir)" \
+ 	"srcdir=$(fsrcdir)" \
+@@ -194,6 +201,10 @@ $(GCC_DIR)/stamp-tools:
+ # to be able to build gnatmake without a version of gnatmake around. Once 
+ # everything has been compiled once, gnatmake can be recompiled with itself 
+ # (see target regnattools) 
++gnattools-native: export LD_LIBRARY_PATH := \
++  $(if $(LD_LIBRARY_PATH),$(LD_LIBRARY_PATH):)$(rtsdir)
++# Useful even for 1st pass, as ../../gnatmake may already be
++# dynamically linked in case this target has already been invoked.
+ gnattools-native: $(GCC_DIR)/stamp-tools $(GCC_DIR)/stamp-gnatlib-rts
+ 	# gnattools1
+ 	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+@@ -202,6 +213,13 @@ gnattools-native: $(GCC_DIR)/stamp-tools $(GCC_DIR)/stamp-gnatlib-rts
+ 	# gnattools2
+ 	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+ 	  $(TOOLS_FLAGS_TO_PASS_NATIVE) common-tools
++# The hard-coded object lists for gnatbind/make/link contain unneeded
++# objects. Use the fresh tools to recompute dependencies.
++# A separate Make run avoids race conditions between gnatmakes
++# building the same object for common-tools and gnat*-re.
++# (parallelism is already forbidden between gnat*-re targets)
++	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
++	  $(TOOLS_FLAGS_TO_PASS_NATIVE) gnatbind-re gnatmake-re gnatlink-re
+ 
+ # gnatmake/link can be built with recent gnatmake/link if they are available.
+ # This is especially convenient for building cross tools or for rebuilding
+diff --git a/libada-sjlj/Makefile.in b/libada-sjlj/Makefile.in
+new file mode 100644
+index 00000000000..8de94870206
+--- /dev/null
++++ b/libada-sjlj/Makefile.in
+@@ -0,0 +1,204 @@
++# Makefile for libada.
++#   Copyright (C) 2003-2017 Free Software Foundation, Inc.
++#
++# This file is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 3 of the License, or
++# (at your option) any later version.
++# 
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++# 
++# You should have received a copy of the GNU General Public License
++# along with this program; see the file COPYING3.  If not see
++# <http://www.gnu.org/licenses/>.
++
++# Default target; must be first.
++all: gnatlib
++	$(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do # $(MAKE)
++
++.PHONY: all
++
++## Multilib support variables.
++MULTISRCTOP =
++MULTIBUILDTOP =
++MULTIDIRS =
++MULTISUBDIR =
++MULTIDO = true
++MULTICLEAN = true
++
++# Standard autoconf-set variables.
++SHELL = @SHELL@
++srcdir = @srcdir@
++libdir = @libdir@
++build = @build@
++target = @target@
++prefix = @prefix@
++
++# Nonstandard autoconf-set variables.
++enable_shared = @enable_shared@
++
++LN_S=@LN_S@
++AWK=@AWK@
++
++ifeq (cp -p,$(LN_S))
++LN_S_RECURSIVE = cp -pR
++else
++LN_S_RECURSIVE = $(LN_S)
++endif
++
++# Variables for the user (or the top level) to override.
++objext=.o
++THREAD_KIND=native
++TRACE=no
++LDFLAGS=
++
++# The tedious process of getting CFLAGS right.
++CFLAGS=-g
++PICFLAG = @PICFLAG@
++GNATLIBFLAGS= -W -Wall -gnatpg -nostdinc
++GNATLIBCFLAGS= -g -O2
++GNATLIBCFLAGS_FOR_C = -W -Wall $(GNATLIBCFLAGS) $(CFLAGS_FOR_TARGET) \
++	-fexceptions -DIN_RTS @have_getipinfo@ @have_capability@
++
++host_subdir = @host_subdir@
++GCC_DIR=$(MULTIBUILDTOP)../../$(host_subdir)/gcc
++
++target_noncanonical:=@target_noncanonical@
++version := $(shell @get_gcc_base_ver@ $(srcdir)/../gcc/BASE-VER)
++libsubdir := $(libdir)/gcc/$(target_noncanonical)/$(version)$(MULTISUBDIR)
++ADA_RTS_DIR=$(GCC_DIR)/ada/rts$(subst /,_,$(MULTISUBDIR))
++ADA_RTS_SUBDIR=./rts$(subst /,_,$(MULTISUBDIR))
++
++# exeext should not be used because it's the *host* exeext.  We're building
++# a *target* library, aren't we?!?  Likewise for CC.  Still, provide bogus
++# definitions just in case something slips through the safety net provided
++# by recursive make invocations in gcc/ada/Makefile.in
++LIBADA_FLAGS_TO_PASS = \
++        "MAKEOVERRIDES=" \
++        "LDFLAGS=$(LDFLAGS) -Wl,--no-allow-shlib-undefined \
++          -Wl,--no-copy-dt-needed-entries -Wl,--no-undefined" \
++        "LN_S=$(LN_S)" \
++        "SHELL=$(SHELL)" \
++        "GNATLIBFLAGS=$(GNATLIBFLAGS) $(MULTIFLAGS) -gnatn" \
++        "GNATLIBCFLAGS=$(GNATLIBCFLAGS) $(MULTIFLAGS)" \
++        "GNATLIBCFLAGS_FOR_C=$(GNATLIBCFLAGS_FOR_C) $(MULTIFLAGS)" \
++        "PICFLAG_FOR_TARGET=$(PICFLAG)" \
++        "THREAD_KIND=$(THREAD_KIND)" \
++        "TRACE=$(TRACE)" \
++        "MULTISUBDIR=$(MULTISUBDIR)" \
++        "libsubdir=$(libsubdir)" \
++        "objext=$(objext)" \
++        "prefix=$(prefix)" \
++        "exeext=.exeext.should.not.be.used " \
++	'CC=the.host.compiler.should.not.be.needed' \
++	"GCC_FOR_TARGET=$(CC)" \
++        "CFLAGS=$(CFLAGS)" \
++	"RTSDIR=rts-sjlj"
++
++# Rules to build gnatlib.
++.PHONY: gnatlib gnatlib-plain gnatlib-sjlj gnatlib-zcx gnatlib-shared osconstool
++gnatlib: gnatlib-sjlj
++
++gnatlib-plain: osconstool $(GCC_DIR)/ada/Makefile
++	test -f stamp-libada || \
++	$(MAKE) -C $(GCC_DIR)/ada $(LIBADA_FLAGS_TO_PASS) gnatlib \
++	&& touch stamp-libada
++	-rm -rf adainclude
++	-rm -rf adalib
++	$(LN_S_RECURSIVE) $(ADA_RTS_DIR) adainclude
++	$(LN_S_RECURSIVE) $(ADA_RTS_DIR) adalib
++
++gnatlib-sjlj gnatlib-zcx gnatlib-shared: osconstool $(GCC_DIR)/ada/Makefile
++	test -f stamp-libada || \
++	$(MAKE) -C $(GCC_DIR)/ada $(LIBADA_FLAGS_TO_PASS) $@ \
++	&& touch stamp-libada-sjlj
++	-rm -rf adainclude
++	-rm -rf adalib
++	$(LN_S_RECURSIVE) $(ADA_RTS_DIR) adainclude
++	$(LN_S_RECURSIVE) $(ADA_RTS_DIR) adalib
++
++osconstool:
++	$(MAKE) -C $(GCC_DIR)/ada $(LIBADA_FLAGS_TO_PASS) ./bldtools/oscons/xoscons
++
++install-gnatlib: $(GCC_DIR)/ada/Makefile
++	$(MAKE) -C $(GCC_DIR)/ada $(LIBADA_FLAGS_TO_PASS) install-gnatlib-sjlj
++
++# Check uninstalled version.
++check:
++
++# Check installed version.
++installcheck:
++
++# Build info (none here).
++info:
++
++# Build DVI (none here).
++dvi:
++
++# Build PDF (none here).
++pdf:
++
++# Build html (none here).
++html:
++
++# Build TAGS (none here).
++TAGS:
++
++.PHONY: check installcheck info dvi pdf html
++
++# Installation rules.
++install: install-gnatlib
++	$(MULTIDO) $(AM_MAKEFLAGS) DO=install multi-do # $(MAKE)
++
++install-strip: install
++
++install-info:
++
++install-pdf:
++
++install-html:
++
++.PHONY: install install-strip install-info install-pdf install-html
++
++# Cleaning rules.
++mostlyclean:
++	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=mostlyclean multi-clean # $(MAKE)
++
++clean:
++	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=clean multi-clean # $(MAKE)
++
++distclean:
++	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=distclean multi-clean # $(MAKE)
++	$(RM) Makefile config.status config.log
++
++maintainer-clean:
++
++.PHONY: mostlyclean clean distclean maintainer-clean
++
++# Rules for rebuilding this Makefile.
++Makefile: $(srcdir)/Makefile.in config.status
++	CONFIG_FILES=$@ ; \
++	CONFIG_HEADERS= ; \
++	$(SHELL) ./config.status
++
++config.status: $(srcdir)/configure
++	$(SHELL) ./config.status --recheck
++
++AUTOCONF = autoconf
++configure_deps = \
++	$(srcdir)/configure.ac \
++	$(srcdir)/../config/acx.m4 \
++	$(srcdir)/../config/multi.m4 \
++	$(srcdir)/../config/override.m4 \
++	$(srcdir)/../config/picflag.m4 \
++	$(srcdir)/../config/unwind_ipinfo.m4
++
++$(srcdir)/configure: @MAINT@ $(configure_deps)
++	cd $(srcdir) && $(AUTOCONF)
++
++# Don't export variables to the environment, in order to not confuse
++# configure.
++.NOEXPORT:
+diff --git a/libada-sjlj/configure.ac b/libada-sjlj/configure.ac
+new file mode 100644
+index 00000000000..bcab9840281
+--- /dev/null
++++ b/libada-sjlj/configure.ac
+@@ -0,0 +1,156 @@
++# Configure script for libada.
++#   Copyright (C) 2003-2017 Free Software Foundation, Inc.
++#
++# This file is free software; you can redistribute it and/or modify it
++# under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 3 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful, but
++# WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++# General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; see the file COPYING3.  If not see
++# <http://www.gnu.org/licenses/>.
++
++sinclude(../config/acx.m4)
++sinclude(../config/multi.m4)
++sinclude(../config/override.m4)
++sinclude(../config/picflag.m4)
++sinclude(../config/unwind_ipinfo.m4)
++
++AC_INIT
++AC_PREREQ([2.64])
++
++AC_CONFIG_SRCDIR([Makefile.in])
++
++# Determine the host, build, and target systems
++AC_CANONICAL_BUILD
++AC_CANONICAL_HOST
++AC_CANONICAL_TARGET
++target_alias=${target_alias-$host_alias}
++
++# Determine the noncanonical target name, for directory use.
++ACX_NONCANONICAL_TARGET
++
++# Determine the target- and build-specific subdirectories
++GCC_TOPLEV_SUBDIRS
++
++# Command-line options.
++# Very limited version of AC_MAINTAINER_MODE.
++AC_ARG_ENABLE([maintainer-mode],
++  [AC_HELP_STRING([--enable-maintainer-mode],
++                 [enable make rules and dependencies not useful (and
++                  sometimes confusing) to the casual installer])],
++  [case ${enable_maintainer_mode} in
++     yes) MAINT='' ;;
++     no) MAINT='#' ;;
++     *) AC_MSG_ERROR([--enable-maintainer-mode must be yes or no]) ;;
++   esac
++   maintainer_mode=${enableval}],
++  [MAINT='#'])
++AC_SUBST([MAINT])dnl
++
++AM_ENABLE_MULTILIB(, ..)
++# Calculate toolexeclibdir
++# Also toolexecdir, though it's only used in toolexeclibdir
++case ${enable_version_specific_runtime_libs} in
++  yes)
++    # Need the gcc compiler version to know where to install libraries
++    # and header files if --enable-version-specific-runtime-libs option
++    # is selected.
++    toolexecdir='$(libdir)/gcc/$(target_alias)'
++    toolexeclibdir='$(toolexecdir)/$(gcc_version)$(MULTISUBDIR)'
++    ;;
++  no)
++    if test -n "$with_cross_host" &&
++       test x"$with_cross_host" != x"no"; then
++      # Install a library built with a cross compiler in tooldir, not libdir.
++      toolexecdir='$(exec_prefix)/$(target_alias)'
++      toolexeclibdir='$(toolexecdir)/lib'
++    else
++      toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
++      toolexeclibdir='$(libdir)'
++    fi
++    multi_os_directory=`$CC -print-multi-os-directory`
++    case $multi_os_directory in
++      .) ;; # Avoid trailing /.
++      *) toolexeclibdir=$toolexeclibdir/$multi_os_directory ;;
++    esac
++    ;;
++esac
++AC_SUBST(toolexecdir)
++AC_SUBST(toolexeclibdir)
++#TODO: toolexeclibdir is currently disregarded
++
++# Check the compiler.
++# The same as in boehm-gc and libstdc++. Have to borrow it from there.
++# We must force CC to /not/ be precious variables; otherwise
++# the wrong, non-multilib-adjusted value will be used in multilibs.
++# As a side effect, we have to subst CFLAGS ourselves.
++
++m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
++m4_define([_AC_ARG_VAR_PRECIOUS],[])
++AC_PROG_CC
++m4_rename_force([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
++
++AC_SUBST(CFLAGS)
++
++AC_ARG_ENABLE([shared],
++[AC_HELP_STRING([--disable-shared],
++                [don't provide a shared libgnat])],
++[
++case $enable_shared in
++  yes | no) ;;
++  *)
++    enable_shared=no
++    IFS="${IFS=         }"; ac_save_ifs="$IFS"; IFS="${IFS}:,"
++    for pkg in $enableval; do
++      case $pkg in
++        ada | libada)
++          enable_shared=yes ;;
++      esac
++    done
++    IFS="$ac_save_ifs"
++    ;;
++esac
++], [enable_shared=yes])
++AC_SUBST([enable_shared])
++
++GCC_PICFLAG
++AC_SUBST([PICFLAG])
++
++# These must be passed down, or are needed by gcc/libgcc.mvars
++AC_PROG_AWK
++AC_PROG_LN_S
++
++# Determine what to build for 'gnatlib'
++if test ${enable_shared} = yes; then
++  default_gnatlib_target="gnatlib-shared"
++else
++  default_gnatlib_target="gnatlib-plain"
++fi
++AC_SUBST([default_gnatlib_target])
++
++# Check for _Unwind_GetIPInfo
++GCC_CHECK_UNWIND_GETIPINFO
++if test x$have_unwind_getipinfo = xyes; then
++  have_getipinfo=-DHAVE_GETIPINFO
++else
++  have_getipinfo=
++fi
++AC_SUBST([have_getipinfo])
++
++# Check for <sys/capability.h>
++AC_CHECK_HEADER([sys/capability.h], have_capability=-DHAVE_CAPABILITY, have_capability=)
++AC_SUBST([have_capability])
++
++# Determine what GCC version number to use in filesystem paths.
++GCC_BASE_VER
++
++# Output: create a Makefile.
++AC_CONFIG_FILES([Makefile])
++
++AC_OUTPUT
+diff --git a/libada/Makefile.in b/libada/Makefile.in
+index 2fc46b0b2e0..52f652fbd7f 100644
+--- a/libada/Makefile.in
++++ b/libada/Makefile.in
+@@ -79,10 +79,11 @@ ADA_RTS_DIR=$(GCC_DIR)/ada/rts$(subst /,_,$(MULTISUBDIR))
+ # by recursive make invocations in gcc/ada/Makefile.in
+ LIBADA_FLAGS_TO_PASS = \
+         "MAKEOVERRIDES=" \
+-        "LDFLAGS=$(LDFLAGS)" \
++        "LDFLAGS=$(LDFLAGS) -Wl,--no-allow-shlib-undefined \
++          -Wl,--no-copy-dt-needed-entries -Wl,--no-undefined" \
+         "LN_S=$(LN_S)" \
+         "SHELL=$(SHELL)" \
+-        "GNATLIBFLAGS=$(GNATLIBFLAGS) $(MULTIFLAGS)" \
++        "GNATLIBFLAGS=$(GNATLIBFLAGS) $(MULTIFLAGS) -gnatn" \
+         "GNATLIBCFLAGS=$(GNATLIBCFLAGS) $(MULTIFLAGS)" \
+         "GNATLIBCFLAGS_FOR_C=$(GNATLIBCFLAGS_FOR_C) $(MULTIFLAGS)" \
+         "PICFLAG_FOR_TARGET=$(PICFLAG)" \
