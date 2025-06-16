@@ -211,7 +211,7 @@ build()
         "$SRC_PATH/gcc/configure" --target="$host" --disable-shared \
             --enable-static --disable-multilib --prefix="$prefix" \
             --enable-languages=c,c++,ada --disable-nls $ENABLE_THREADS \
-            $x86_dwarf2 --verbose
+            $x86_dwarf2 --verbose --with-sysroot="$prefix"
 
     execute "($arch): building GCC (all-gcc)" "" \
         make V=1 VERBOSE=1 -j $JOB_COUNT all-gcc --debug=verbose
